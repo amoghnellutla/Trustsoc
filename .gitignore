@@ -1,0 +1,44 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment variables (NEVER commit)
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Database local files
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache/temp
+*.tmp
+.cache/
+
+# Optional: Docker files (only ignore if you truly don't want them in repo)
+# Dockerfile
+# docker-compose.yml
+# .dockerignore

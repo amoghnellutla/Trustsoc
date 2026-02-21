@@ -1,0 +1,63 @@
+services:
+  - type: web
+    name: trustsoc-api
+    runtime: python
+    plan: free
+    branch: main
+
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+
+      # Secrets (set in Render dashboard)
+      - key: DATABASE_URL
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: VIRUSTOTAL_API_KEY
+        sync: false
+      - key: ABUSEIPDB_API_KEY
+        sync: false
+      - key: OTX_API_KEY
+        sync: false
+
+      # App settings
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+
+      # Rate limiting / thresholds (Render env vars are strings; app will cast)
+      - key: MAX_ALERTS_PER_MINUTE
+        value: "100"
+      - key: MAX_BLOCKS_PER_HOUR
+        value: "50"
+
+      - key: AUTO_BLOCK_ENABLED
+        value: "true"
+      - key: AUTO_BLOCK_DURATION_MINUTES
+        value: "15"
+      - key: CRITICAL_ASSET_MIN_SCORE
+        value: "8"
+
+      - key: HIGH_RISK_THRESHOLD
+        value: "70"
+      - key: MEDIUM_RISK_THRESHOLD
+        value: "40"
+      - key: LOW_RISK_THRESHOLD
+        value: "0"
+
+      - key: HIGH_CONFIDENCE_THRESHOLD
+        value: "0.8"
+      - key: MEDIUM_CONFIDENCE_THRESHOLD
+        value: "0.5"
+
+      - key: CORRELATION_TIME_WINDOW_MINUTES
+        value: "15"
+      - key: MIN_ALERTS_FOR_INCIDENT
+        value: "3"
