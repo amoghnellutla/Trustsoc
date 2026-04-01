@@ -20,7 +20,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import settings
 from app.database import engine, Base
-from app.routers import alerts, incidents, cases, suppressions, mitre
+from app.routers import alerts, incidents, cases, suppressions, mitre, export, admin
 
 
 # ============================================================================
@@ -197,6 +197,8 @@ app.include_router(incidents.router,    prefix="/api/v1/incidents",    tags=["In
 app.include_router(suppressions.router, prefix="/api/v1/suppressions", tags=["Suppressions"])
 app.include_router(cases.router,        prefix="/api/v1/cases",        tags=["Cases"])
 app.include_router(mitre.router,        prefix="/api/v1/mitre",        tags=["MITRE ATT&CK"])
+app.include_router(export.router,       prefix="/api/v1/export",       tags=["Export"])
+app.include_router(admin.router,        prefix="/api/v1/admin",        tags=["Admin"])
 
 
 # ============================================================================

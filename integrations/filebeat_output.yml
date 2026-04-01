@@ -1,0 +1,62 @@
+# TrustSOC — Filebeat HTTP Output Configuration
+# ===============================================
+# Forward Elastic/Filebeat events to TrustSOC for enrichment, correlation, and response.
+#
+# Add this to your filebeat.yml (typically /etc/filebeat/filebeat.yml)
+# Then restart: sudo systemctl restart filebeat
+
+# ---------------------------------------------------------------------------
+# Option A: HTTP Output (Filebeat → TrustSOC directly)
+# Use this when Filebeat is your primary log shipper.
+# ---------------------------------------------------------------------------
+
+output.http:
+  # Replace with your TrustSOC URL
+  hosts: ["https://YOUR_TRUSTSOC_URL"]
+  path: "/api/v1/alerts"
+  headers:
+    x-api-key: "YOUR_TRUSTSOC_API_KEY"
+    Content-Type: "application/json"
+  # Wrap each event as a TrustSOC alert payload
+  codec.format:
+    string: >-
+      {"source_system": "elastic", "external_id": "%{[event][id]}", "alert_data": %{[@metadata][beat]}}
+
+# ---------------------------------------------------------------------------
+# Option B: Logstash → TrustSOC pipeline filter (if you use Logstash)
+# Add this filter + output block to your Logstash pipeline config.
+# ---------------------------------------------------------------------------
+#
+# filter {
+#   mutate {
+#     add_field => {
+#       "[@trustsoc][source_system]" => "elastic"
+#       "[@trustsoc][external_id]"   => "%{[@metadata][_id]}"
+#     }
+#   }
+# }
+#
+# output {
+#   http {
+#     url    => "https://YOUR_TRUSTSOC_URL/api/v1/alerts"
+#     http_method => "post"
+#     headers => {
+#       "x-api-key"    => "YOUR_TRUSTSOC_API_KEY"
+#       "Content-Type" => "application/json"
+#     }
+#     format => "json"
+#     mapping => {
+#       "source_system" => "%{[@trustsoc][source_system]}"
+#       "external_id"   => "%{[@trustsoc][external_id]}"
+#       "alert_data"    => "%{message}"
+#     }
+#   }
+# }
+
+# ---------------------------------------------------------------------------
+# Recommended Filebeat modules to enable for security monitoring
+# ---------------------------------------------------------------------------
+# filebeat modules enable system auditd nginx apache
+#
+# These ship authentication, audit, and web access logs — exactly the events
+# TrustSOC's correlation engine looks for (failed auth, lateral movement, etc.)

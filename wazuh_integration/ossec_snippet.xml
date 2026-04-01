@@ -1,0 +1,38 @@
+<!--
+  TrustSOC — Wazuh Integration Snippet
+  =====================================
+  Add this block inside <ossec_config> in /var/ossec/etc/ossec.conf
+  (or /etc/ossec/ossec.conf depending on your install)
+
+  Replace:
+    <hook_url>   → your TrustSOC URL (e.g. https://trustsoc-api.onrender.com)
+    <api_key>    → your TrustSOC API_KEY env var value
+
+  After editing, restart Wazuh manager:
+    sudo systemctl restart wazuh-manager
+    (or: sudo /var/ossec/bin/ossec-control restart)
+
+  Verify it's working:
+    sudo tail -f /var/ossec/logs/integrations.log
+-->
+
+<integration>
+  <name>custom-trustsoc</name>
+  <hook_url>https://YOUR_TRUSTSOC_URL/api/v1/alerts</hook_url>
+  <api_key>YOUR_TRUSTSOC_API_KEY</api_key>
+  <level>7</level>
+  <alert_format>json</alert_format>
+</integration>
+
+<!--
+  OPTIONAL: Send only specific rule groups (e.g. authentication, web)
+  Uncomment and adjust as needed:
+
+  <integration>
+    <name>custom-trustsoc</name>
+    <hook_url>https://YOUR_TRUSTSOC_URL/api/v1/alerts</hook_url>
+    <api_key>YOUR_TRUSTSOC_API_KEY</api_key>
+    <group>authentication_failed,web,syscheck</group>
+    <alert_format>json</alert_format>
+  </integration>
+-->

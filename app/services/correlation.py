@@ -295,4 +295,21 @@ def _create_or_update_incident(
     )
 
     db.commit()
+
+    # Slack notification for new incidents (only on creation, not update)
+    if not existing_incident:
+        try:
+            from app.notifications.slack import notify_new_incident
+            notify_new_incident(
+                incident_id=str(incident.id),
+                title=incident.title,
+                pattern_type=pattern_type,
+                severity=incident.severity,
+                alert_count=len(alerts),
+                mitre_tactics=mitre.get("tactics", []),
+                mitre_techniques=mitre.get("techniques", []),
+            )
+        except Exception as exc:
+            logger.warning("Slack notification failed for incident: %s", exc)
+
     return incident

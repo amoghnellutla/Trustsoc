@@ -247,3 +247,21 @@ def _enrich_alert(db: Session, alert_id: UUID) -> None:
         alert_id, risk_score, confidence, total_cost,
         [r["provider"] for r in all_enrichment_results],
     )
+
+    # Slack notification for high-risk alerts
+    if risk_score >= settings.HIGH_RISK_THRESHOLD:
+        try:
+            from app.notifications.slack import notify_high_risk_alert
+            n = alert.normalized_alert or {}
+            notify_high_risk_alert(
+                alert_id=str(alert_id),
+                title=n.get("title", "Security Alert"),
+                risk_score=risk_score,
+                severity=n.get("severity", "medium"),
+                source_host=n.get("source_host"),
+                source_ip=n.get("source_ip"),
+                mitre_techniques=None,
+                explanation=explanation,
+            )
+        except Exception as exc:
+            logger.warning("Slack notification failed: %s", exc)

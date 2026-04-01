@@ -22,6 +22,7 @@ from app.services.correlation import run_correlation_pipeline
 from app.services.policy_engine import run_policy_engine
 from app.services.narrative import generate_alert_narrative
 from app.services.suppression import check_suppression, apply_suppression
+from app.services.feedback import handle_false_positive_feedback
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -415,6 +416,21 @@ def add_feedback(
 
     db.commit()
     db.refresh(db_feedback)
+
+    # Auto-suppression learning: false_positive → create suppression rule
+    suppression_result = None
+    if feedback.feedback_type == "false_positive":
+        try:
+            suppression_result = handle_false_positive_feedback(
+                db=db, alert=alert, analyst_id=feedback.analyst_id
+            )
+        except Exception as exc:
+            logger.warning("Auto-suppression failed for alert %s: %s", alert_id, exc)
+
+    # Attach suppression info to response as extra field (won't break schema)
+    if suppression_result:
+        logger.info("Auto-suppression: %s", suppression_result.get("rule_name"))
+
     return db_feedback
 
 

@@ -81,6 +81,29 @@ class Settings(BaseSettings):
     MIN_ALERTS_FOR_INCIDENT: int = 3
 
     # =========================
+    # Notifications — Slack / Discord webhook (optional)
+    # =========================
+    SLACK_WEBHOOK_URL: Optional[str] = None   # Slack or Discord (append /slack to Discord URL)
+
+    # =========================
+    # Notifications — Email digest via SMTP (optional)
+    # =========================
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None           # Gmail address
+    SMTP_PASSWORD: Optional[str] = None       # Gmail App Password
+    DIGEST_EMAIL_TO: Optional[str] = None     # Recipient(s), comma-separated
+
+    # =========================
+    # Firewall Integrations (optional — for real IP blocking)
+    # =========================
+    WAZUH_API_URL: Optional[str] = None       # e.g. https://wazuh-manager:55000
+    WAZUH_API_USER: str = "wazuh"
+    WAZUH_API_PASS: Optional[str] = None
+    PFSENSE_API_URL: Optional[str] = None     # pfSense/OPNsense API base URL
+    PFSENSE_API_KEY: Optional[str] = None
+
+    # =========================
     # Pydantic v2 Config
     # =========================
     model_config = ConfigDict(
