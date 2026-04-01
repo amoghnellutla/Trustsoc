@@ -1,16 +1,96 @@
 version: "3.9"
 
+# TrustSOC — "SOC in a Box"
+# One command to a fully working SOC demo:
+#   docker compose up
+#
+# Services:
+#   postgres       — PostgreSQL 15 database
+#   trustsoc-api   — TrustSOC FastAPI backend (http://localhost:8000)
+#   grafana        — Pre-built dashboards    (http://localhost:3000, admin/admin)
+#
+# Minimal setup — only DATABASE_URL and API_KEY are required.
+# Copy .env.example to .env and fill in those two values.
+
 services:
+
+  # ─────────────────────────────────────────────────────
+  # PostgreSQL 15
+  # ─────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: trustsoc-postgres
+    environment:
+      POSTGRES_DB: trustsoc
+      POSTGRES_USER: trustsoc
+      POSTGRES_PASSWORD: trustsoc_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trustsoc -d trustsoc"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────
+  # TrustSOC API
+  # ─────────────────────────────────────────────────────
   trustsoc-api:
     build: .
     container_name: trustsoc-api
     ports:
       - "8000:8000"
-    env_file:
-      - .env
-    restart: unless-stopped
+    environment:
+      # Override DATABASE_URL to point at the local postgres container
+      DATABASE_URL: postgresql://trustsoc:trustsoc_dev@postgres:5432/trustsoc
+      # API key for the demo — change before any real deployment
+      API_KEY: trustsoc_demo_key
+      ENVIRONMENT: development
+      LOG_LEVEL: INFO
+      # Add your real API keys here (or in a .env file) for live threat intel
+      VIRUSTOTAL_API_KEY: ${VIRUSTOTAL_API_KEY:-}
+      ABUSEIPDB_API_KEY: ${ABUSEIPDB_API_KEY:-}
+      OTX_API_KEY: ${OTX_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Safety defaults
+      AUTO_BLOCK_ENABLED: "true"
+      AUTO_BLOCK_DURATION_MINUTES: "15"
+      HIGH_RISK_THRESHOLD: "70"
+      CORRELATION_TIME_WINDOW_MINUTES: "15"
+      MIN_ALERTS_FOR_INCIDENT: "3"
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────
+  # Grafana — pre-built dashboards
+  # Login: http://localhost:3000  admin / admin
+  # ─────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: trustsoc-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: ""
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  grafana_data:

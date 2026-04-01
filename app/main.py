@@ -20,7 +20,7 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.config import settings
 from app.database import engine, Base
-from app.routers import alerts, incidents, cases
+from app.routers import alerts, incidents, cases, suppressions, mitre
 
 
 # ============================================================================
@@ -79,6 +79,17 @@ async def lifespan(app: FastAPI):
         logger.info("Database tables ready")
     except Exception as exc:
         logger.error("Database init failed: %s", exc, exc_info=True)
+
+    # Initialize plugin registry (built-in + community plugins)
+    from app.plugins.registry import initialize_plugins
+    reg = initialize_plugins(settings.TRUSTSOC_PLUGIN_DIR)
+    logger.info("Plugin registry ready: %s", reg.summary())
+
+    # Load YAML policies from policies/ directory
+    from app.services.policy_engine import load_policies
+    loaded = load_policies()
+    logger.info("Loaded %d policies", len(loaded))
+
     yield
     logger.info("TrustSOC shutting down")
 
@@ -181,9 +192,11 @@ async def general_error_handler(request: Request, exc: Exception):
 # ROUTERS
 # ============================================================================
 
-app.include_router(alerts.router,    prefix="/api/v1/alerts",    tags=["Alerts"])
-app.include_router(incidents.router, prefix="/api/v1/incidents", tags=["Incidents"])
-app.include_router(cases.router,     prefix="/api/v1/cases",     tags=["Cases"])
+app.include_router(alerts.router,       prefix="/api/v1/alerts",       tags=["Alerts"])
+app.include_router(incidents.router,    prefix="/api/v1/incidents",    tags=["Incidents"])
+app.include_router(suppressions.router, prefix="/api/v1/suppressions", tags=["Suppressions"])
+app.include_router(cases.router,        prefix="/api/v1/cases",        tags=["Cases"])
+app.include_router(mitre.router,        prefix="/api/v1/mitre",        tags=["MITRE ATT&CK"])
 
 
 # ============================================================================
@@ -204,6 +217,13 @@ def root():
 @app.get("/health", tags=["System"], summary="Health check")
 def health_check():
     return {"status": "healthy", "timestamp": time.time()}
+
+
+@app.get("/api/v1/plugins", tags=["System"], summary="List loaded enrichment plugins")
+def list_plugins():
+    """Shows all active enrichment plugins and supported IOC types."""
+    from app.plugins.registry import registry
+    return registry.summary()
 
 
 @app.get("/api/v1/stats", tags=["System"], summary="System statistics")

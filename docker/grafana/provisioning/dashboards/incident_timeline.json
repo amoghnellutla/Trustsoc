@@ -1,0 +1,80 @@
+{
+  "title": "TrustSOC — Incident Timeline",
+  "uid": "trustsoc-incidents",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Incidents by Severity",
+      "type": "piechart",
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT severity AS metric, count(*) AS value FROM incidents GROUP BY severity ORDER BY value DESC",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Incidents by Pattern Type",
+      "type": "barchart",
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT pattern_type AS metric, count(*) AS value FROM incidents WHERE pattern_type IS NOT NULL GROUP BY pattern_type ORDER BY value DESC",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Open vs Closed Incidents",
+      "type": "piechart",
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT status AS metric, count(*) AS value FROM incidents GROUP BY status",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Incidents Created Over Time",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT date_trunc('day', created_at) AS time, count(*) AS incidents FROM incidents WHERE created_at >= now() - interval '7 days' GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Recent Incidents",
+      "type": "table",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 10 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT i.title, i.pattern_type, i.severity, i.status, count(a.id) AS alert_count, i.created_at FROM incidents i LEFT JOIN alerts a ON a.incident_id = i.id GROUP BY i.id, i.title, i.pattern_type, i.severity, i.status, i.created_at ORDER BY i.created_at DESC LIMIT 20",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

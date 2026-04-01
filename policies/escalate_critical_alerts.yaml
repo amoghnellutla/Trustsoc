@@ -1,0 +1,24 @@
+# Policy: Escalate Critical Severity Alerts
+# Creates a human-review flag for critical alerts regardless of risk score.
+
+name: escalate_critical_severity
+version: "1.0"
+enabled: true
+description: >
+  Any alert with 'critical' severity is immediately flagged for human review,
+  even if enrichment hasn't completed yet.
+
+conditions:
+  - field: normalized_alert.severity
+    operator: eq
+    value: critical
+
+actions:
+  - type: flag_for_human_review
+    requires_approval: false
+  - type: notify_security_team
+    requires_approval: false
+
+explanation_template: >
+  Alert {alert_id} has critical severity from {source}.
+  Policy '{policy_name}' escalated to human review queue.

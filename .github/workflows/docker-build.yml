@@ -1,0 +1,32 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate docker-compose
+        run: docker compose config
+
+      - name: Build API image
+        run: docker build -t trustsoc-api:ci .
+
+      - name: Smoke test — container starts
+        run: |
+          docker run --rm -d \
+            -e DATABASE_URL="postgresql://x:x@localhost/x" \
+            -e API_KEY="ci_test_key" \
+            -p 8001:8000 \
+            --name trustsoc_ci \
+            trustsoc-api:ci &
+          sleep 5
+          curl -f http://localhost:8001/health || (docker logs trustsoc_ci && exit 1)
+          docker stop trustsoc_ci || true

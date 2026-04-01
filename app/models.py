@@ -33,6 +33,7 @@ class Alert(Base):
     feedback = relationship("Feedback", back_populates="alert")
     incident = relationship("Incident", back_populates="alerts")
     policy_executions = relationship("PolicyExecution", back_populates="alert")
+    narratives = relationship("Narrative", back_populates="alert")
 
 
 class Incident(Base):
@@ -58,6 +59,8 @@ class Incident(Base):
     evidence = relationship("Evidence", back_populates="incident")
     actions = relationship("Action", back_populates="incident")
     feedback = relationship("Feedback", back_populates="incident")
+    narratives = relationship("Narrative", back_populates="incident")
+    cases = relationship("Case", secondary="case_incidents", back_populates="incidents")
 
 
 class Evidence(Base):
@@ -85,7 +88,7 @@ class Enrichment(Base):
     Stores threat intelligence enrichment results
     """
     __tablename__ = "enrichments"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     alert_id = Column(UUID(as_uuid=True), ForeignKey("alerts.id"), nullable=False, index=True)
     enrichment_type = Column(String(100), nullable=False)  # ip_reputation, file_hash, etc.
@@ -93,8 +96,12 @@ class Enrichment(Base):
     query_value = Column(String(255))  # what we looked up
     result = Column(JSONB, nullable=False)
     confidence_score = Column(DECIMAL(3, 2))
+    # Cost tracking — transparency for free-tier users
+    cost_usd = Column(DECIMAL(10, 6), default=0.0)
+    cached = Column(Boolean, default=False)
+    api_calls_made = Column(Integer, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     # Relationships
     alert = relationship("Alert", back_populates="enrichments")
 
@@ -198,7 +205,7 @@ class PolicyExecution(Base):
     Stores which policy/rule made a decision
     """
     __tablename__ = "policy_executions"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     alert_id = Column(UUID(as_uuid=True), ForeignKey("alerts.id"), index=True)
     policy_name = Column(String(255), nullable=False)
@@ -207,6 +214,78 @@ class PolicyExecution(Base):
     actions_determined = Column(JSONB)
     explanation = Column(Text)
     executed_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     # Relationships
     alert = relationship("Alert", back_populates="policy_executions")
+
+
+class Case(Base):
+    """
+    Analyst workspace wrapping one or more incidents.
+    Phase 2 — case management + compliance export.
+    """
+    __tablename__ = "cases"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    status = Column(String(50), default="open", index=True)   # open | in_progress | closed
+    severity = Column(String(50), default="medium", index=True)
+    assigned_to = Column(String(255))                          # analyst username
+    created_by = Column(String(255))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    closed_at = Column(DateTime(timezone=True))
+    tags = Column(JSONB)
+
+    # Relationships
+    incidents = relationship("Incident", secondary="case_incidents", back_populates="cases")
+    notes = relationship("CaseNote", back_populates="case", cascade="all, delete-orphan")
+
+
+class CaseIncident(Base):
+    """Association table linking cases to incidents (many-to-many)."""
+    __tablename__ = "case_incidents"
+
+    case_id = Column(UUID(as_uuid=True), ForeignKey("cases.id"), primary_key=True)
+    incident_id = Column(UUID(as_uuid=True), ForeignKey("incidents.id"), primary_key=True)
+    added_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CaseNote(Base):
+    """Analyst notes attached to a case."""
+    __tablename__ = "case_notes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    case_id = Column(UUID(as_uuid=True), ForeignKey("cases.id"), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    author = Column(String(255))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    case = relationship("Case", back_populates="notes")
+
+
+class Narrative(Base):
+    """
+    LLM-generated investigation narrative for an alert or incident.
+    Phase 2 differentiator — plain-English summaries via Claude API.
+    """
+    __tablename__ = "narratives"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    alert_id = Column(UUID(as_uuid=True), ForeignKey("alerts.id"), index=True, nullable=True)
+    incident_id = Column(UUID(as_uuid=True), ForeignKey("incidents.id"), index=True, nullable=True)
+    narrative_text = Column(Text, nullable=False)
+    what_happened = Column(Text)
+    what_we_know = Column(Text)
+    recommended_actions = Column(Text)
+    model_used = Column(String(100))          # e.g. claude-sonnet-4-6
+    token_count = Column(Integer, default=0)
+    cost_usd = Column(DECIMAL(10, 6), default=0.0)
+    is_mock = Column(Boolean, default=False)  # True when ANTHROPIC_API_KEY absent
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    # Relationships
+    alert = relationship("Alert", back_populates="narratives")
+    incident = relationship("Incident", back_populates="narratives")

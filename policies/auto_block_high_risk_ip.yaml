@@ -1,0 +1,26 @@
+# Policy: Auto-Block High-Risk External IPs
+# Triggers when an external IP scores high risk with high confidence.
+# Guardrails will refuse to block internal IPs or critical assets.
+
+name: auto_block_high_risk_external_ip
+version: "1.0"
+enabled: true
+description: >
+  Recommend blocking external IPs with a risk score >= 80 and confidence >= 0.75.
+  Guardrails enforce: internal IPs are never blocked, critical assets require human review.
+
+conditions:
+  - field: risk_score
+    operator: gte
+    value: 80
+  - field: normalized_alert.source_ip
+    operator: is_external
+
+actions:
+  - type: recommend_block_ip
+    requires_approval: false
+    rollback_after_minutes: 15
+
+explanation_template: >
+  Alert {alert_id} scored {risk_score} with an external source IP.
+  Policy '{policy_name}' recommends blocking the IP for 15 minutes (auto-expires).

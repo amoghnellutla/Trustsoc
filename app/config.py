@@ -1,8 +1,12 @@
 """
 Application configuration from environment variables.
 Compatible with Pydantic v2.
+
+Only DATABASE_URL and API_KEY are required.
+All external API keys are optional — TrustSOC degrades gracefully without them.
 """
 
+from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 
@@ -13,23 +17,36 @@ class Settings(BaseSettings):
     """
 
     # =========================
-    # Database
+    # Database (required)
     # =========================
     DATABASE_URL: str
 
     # =========================
-    # API Settings
+    # API Settings (required)
     # =========================
     API_KEY: str
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
 
     # =========================
-    # External APIs
+    # External APIs (all optional — system degrades gracefully)
     # =========================
-    VIRUSTOTAL_API_KEY: str
-    ABUSEIPDB_API_KEY: str
-    OTX_API_KEY: str
+    VIRUSTOTAL_API_KEY: Optional[str] = None
+    ABUSEIPDB_API_KEY: Optional[str] = None
+    OTX_API_KEY: Optional[str] = None
+    ANTHROPIC_API_KEY: Optional[str] = None  # For LLM investigation narratives
+
+    # =========================
+    # Offline / Air-Gapped Mode
+    # =========================
+    OFFLINE_MODE: bool = False  # True = skip ALL external API calls; use mock data only
+
+    # =========================
+    # Enrichment Settings
+    # =========================
+    ENRICHMENT_BUDGET_PER_ALERT_USD: float = 0.10   # Max API cost per alert
+    ENRICHMENT_CACHE_TTL_SECONDS: int = 3600         # 1 hour cache for IOC lookups
+    TRUSTSOC_PLUGIN_DIR: Optional[str] = None        # Custom plugin directory path
 
     # =========================
     # Rate Limiting

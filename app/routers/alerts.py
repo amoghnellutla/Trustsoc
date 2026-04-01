@@ -7,7 +7,7 @@ from typing import List, Optional
 from uuid import UUID
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Security
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Security
 from fastapi import status as http_status
 from fastapi.security import APIKeyHeader
 from sqlalchemy.orm import Session
@@ -17,6 +17,11 @@ from app.config import settings
 from app import models, schemas
 from app.utils.helpers import normalize_alert
 from app.utils.evidence import create_evidence, verify_evidence_hash
+from app.services.enrichment import run_enrichment_pipeline
+from app.services.correlation import run_correlation_pipeline
+from app.services.policy_engine import run_policy_engine
+from app.services.narrative import generate_alert_narrative
+from app.services.suppression import check_suppression, apply_suppression
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -47,6 +52,7 @@ def verify_api_key(x_api_key: str = Security(api_key_header)) -> str:
 )
 def create_alert(
     payload: schemas.AlertCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     api_key: str = Depends(verify_api_key),
 ):
@@ -83,7 +89,20 @@ def create_alert(
             source="trustsoc_intake",
         )
 
-        # Returning ORM object is fine because schemas use from_attributes=True
+        # Suppression check — runs synchronously before scheduling background work.
+        # If a rule matches, the alert is marked "suppressed" and no API calls are made.
+        matched_rule = check_suppression(db, db_alert)
+        if matched_rule:
+            apply_suppression(db, db_alert, matched_rule)
+            return db_alert  # Return early — skip enrichment/correlation/policy
+
+        # Run enrichment → correlation → policy engine as background tasks
+        # Alert returns immediately; pipeline runs after the response is sent
+        alert_id = db_alert.id
+        background_tasks.add_task(run_enrichment_pipeline, alert_id)
+        background_tasks.add_task(run_correlation_pipeline, alert_id)
+        background_tasks.add_task(run_policy_engine, alert_id)
+
         return db_alert
 
     except Exception as exc:
@@ -143,6 +162,57 @@ def list_alerts(
 
     alerts = query.order_by(models.Alert.created_at.desc()).offset(skip).limit(limit).all()
     return alerts
+
+
+# ---------------------------------------------------------------------------
+# POST /{alert_id}/narrative — generate LLM investigation narrative
+# ---------------------------------------------------------------------------
+@router.post(
+    "/{alert_id}/narrative",
+    response_model=schemas.NarrativeResponse,
+    status_code=http_status.HTTP_201_CREATED,
+    summary="Generate LLM investigation narrative for an alert",
+)
+def create_alert_narrative(
+    alert_id: UUID,
+    db: Session = Depends(get_db),
+    api_key: str = Depends(verify_api_key),
+):
+    alert = db.query(models.Alert).filter(models.Alert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"Alert {alert_id} not found")
+    try:
+        return generate_alert_narrative(db, alert_id)
+    except Exception as exc:
+        logger.error("Narrative generation failed alert_id=%s: %s", alert_id, exc, exc_info=True)
+        raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Narrative generation failed")
+
+
+# ---------------------------------------------------------------------------
+# GET /{alert_id}/narrative — retrieve existing narrative
+# ---------------------------------------------------------------------------
+@router.get(
+    "/{alert_id}/narrative",
+    response_model=schemas.NarrativeResponse,
+    summary="Get existing LLM narrative for an alert",
+)
+def get_alert_narrative(
+    alert_id: UUID,
+    db: Session = Depends(get_db),
+    api_key: str = Depends(verify_api_key),
+):
+    narrative = (
+        db.query(models.Narrative)
+        .filter(models.Narrative.alert_id == alert_id)
+        .order_by(models.Narrative.created_at.desc())
+        .first()
+    )
+    if not narrative:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="No narrative yet. POST to generate one.",
+        )
+    return narrative
 
 
 # ---------------------------------------------------------------------------

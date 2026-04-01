@@ -95,14 +95,47 @@ class IncidentResponse(BaseModel):
     """Schema for incident in responses"""
     id: UUID
     title: str
+    description: Optional[str]
     pattern_type: Optional[str]
     severity: str
     status: str
-    mitre_tactics: Optional[Dict[str, Any]]
-    mitre_techniques: Optional[Dict[str, Any]]
+    mitre_tactics: Optional[List[str]]
+    mitre_techniques: Optional[List[str]]
     created_at: datetime
+    updated_at: Optional[datetime]
+    closed_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class IncidentDetail(BaseModel):
+    """Full incident with linked alerts"""
+    id: UUID
+    title: str
+    description: Optional[str]
+    pattern_type: Optional[str]
+    severity: str
+    status: str
+    mitre_tactics: Optional[List[str]]
+    mitre_techniques: Optional[List[str]]
+    created_at: datetime
+    updated_at: Optional[datetime]
+    closed_at: Optional[datetime]
+    alert_count: int
+    alerts: List["AlertResponse"]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TimelineEvent(BaseModel):
+    """A single event in an incident timeline"""
+    timestamp: datetime
+    event_type: str        # alert_received, enrichment_completed, correlation_detected, etc.
+    source: str
+    summary: str
+    alert_id: Optional[UUID] = None
+    evidence_id: Optional[UUID] = None
+    data: Optional[Dict[str, Any]] = None
 
 
 # ============================================================================
@@ -242,6 +275,161 @@ class FeedbackResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# NARRATIVE SCHEMAS (Phase 2 — LLM Investigation Narratives)
+# ============================================================================
+
+# ============================================================================
+# CASE SCHEMAS (Phase 2 — Case Management)
+# ============================================================================
+
+class CaseNoteCreate(BaseModel):
+    content: str
+    author: str = "analyst"
+
+
+class CaseNoteResponse(BaseModel):
+    id: UUID
+    content: str
+    author: Optional[str]
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CaseCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    severity: str = "medium"
+    assigned_to: Optional[str] = None
+    created_by: str = "analyst"
+    incident_ids: List[UUID] = []
+    tags: Optional[List[str]] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "title": "Q2 Ransomware Investigation",
+                "description": "Suspected ransomware activity across Finance subnet",
+                "severity": "critical",
+                "assigned_to": "john.analyst",
+                "created_by": "john.analyst",
+                "incident_ids": [],
+            }
+        }
+    )
+
+
+class CaseResponse(BaseModel):
+    id: UUID
+    title: str
+    description: Optional[str]
+    status: str
+    severity: str
+    assigned_to: Optional[str]
+    created_by: Optional[str]
+    created_at: datetime
+    updated_at: Optional[datetime]
+    closed_at: Optional[datetime]
+    tags: Optional[Any]
+    incident_count: int
+    note_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CaseDetail(BaseModel):
+    id: UUID
+    title: str
+    description: Optional[str]
+    status: str
+    severity: str
+    assigned_to: Optional[str]
+    created_by: Optional[str]
+    created_at: datetime
+    updated_at: Optional[datetime]
+    closed_at: Optional[datetime]
+    tags: Optional[Any]
+    incidents: List["IncidentResponse"]
+    notes: List[CaseNoteResponse]
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============================================================================
+# SUPPRESSION SCHEMAS (Phase 2 — Suppression Rule Engine)
+# ============================================================================
+
+class SuppressionCondition(BaseModel):
+    field: str
+    operator: str
+    value: Optional[Any] = None
+
+
+class SuppressionCreate(BaseModel):
+    rule_name: str
+    conditions: List[SuppressionCondition]
+    reason: Optional[str] = None
+    expires_after_days: Optional[int] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "rule_name": "fp_windows_update",
+                "reason": "Windows Update traffic — safe to suppress",
+                "expires_after_days": 90,
+                "conditions": [
+                    {"field": "normalized_alert.title", "operator": "contains", "value": "Windows Update"},
+                    {"field": "normalized_alert.severity", "operator": "eq", "value": "low"},
+                ],
+            }
+        }
+    )
+
+
+class SuppressionResponse(BaseModel):
+    id: UUID
+    rule_name: str
+    conditions: List[Dict[str, Any]]
+    reason: Optional[str]
+    created_by: Optional[str]
+    expires_at: Optional[datetime]
+    created_at: datetime
+    enabled: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SuppressionImportRequest(BaseModel):
+    url: str = Field(..., description="URL to a raw YAML suppression rule file")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "url": "https://raw.githubusercontent.com/trustsoc/community-rules/main/windows/fp_windows_update.yaml"
+            }
+        }
+    )
+
+
+class NarrativeResponse(BaseModel):
+    """Full LLM narrative with cost metadata."""
+    id: UUID
+    alert_id: Optional[UUID]
+    incident_id: Optional[UUID]
+    narrative_text: str
+    what_happened: Optional[str]
+    what_we_know: Optional[str]
+    recommended_actions: Optional[str]
+    model_used: Optional[str]
+    token_count: int
+    cost_usd: Decimal
+    is_mock: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True, protected_namespaces=())
 
 
 # ============================================================================

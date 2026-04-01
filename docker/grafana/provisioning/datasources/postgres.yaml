@@ -1,0 +1,20 @@
+apiVersion: 1
+
+datasources:
+  - name: TrustSOC-DB
+    type: postgres
+    uid: trustsoc_postgres
+    url: postgres:5432
+    database: trustsoc
+    user: trustsoc
+    secureJsonData:
+      password: trustsoc_dev
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+      postgresVersion: 1500
+      timescaledb: false
+    isDefault: true
+    editable: false

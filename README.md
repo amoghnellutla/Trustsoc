@@ -13,7 +13,7 @@ TrustSOC automates SOC analyst work by:
 
 ##  Live Demo
 
-**API:** [https://trustsoc.onrender.com](https://trustsoc.onrender.com)  
+**API:** [https://trustsoc.onrender.com](https://trustsoc.onrender.com)
 **Docs:** [https://trustsoc.onrender.com/docs](https://trustsoc.onrender.com/docs)
 
 ##  Key Features

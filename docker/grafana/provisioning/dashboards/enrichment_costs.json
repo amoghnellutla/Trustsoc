@@ -1,0 +1,140 @@
+{
+  "title": "TrustSOC — Enrichment & API Costs",
+  "uid": "trustsoc-costs",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-7d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total API Cost This Week (USD)",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "options": { "colorMode": "value", "graphMode": "none" },
+      "targets": [
+        {
+          "rawSql": "SELECT round(coalesce(sum(cost_usd), 0)::numeric, 4) AS value FROM enrichments WHERE created_at >= now() - interval '7 days'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Total API Calls This Week",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "options": { "colorMode": "value", "graphMode": "none" },
+      "targets": [
+        {
+          "rawSql": "SELECT coalesce(sum(api_calls_made), 0) AS value FROM enrichments WHERE created_at >= now() - interval '7 days'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Cache Hit Rate (%)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "options": { "colorMode": "value", "graphMode": "none" },
+      "targets": [
+        {
+          "rawSql": "SELECT CASE WHEN count(*) = 0 THEN 0 ELSE round(100.0 * sum(CASE WHEN cached THEN 1 ELSE 0 END) / count(*), 1) END AS value FROM enrichments WHERE created_at >= now() - interval '7 days'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Enrichments Using Mock Data",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "options": { "colorMode": "background", "graphMode": "none" },
+      "targets": [
+        {
+          "rawSql": "SELECT count(*) AS value FROM enrichments WHERE provider = 'mock' AND created_at >= now() - interval '7 days'",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "API Calls by Provider",
+      "type": "barchart",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT provider AS metric, sum(api_calls_made) AS value FROM enrichments WHERE created_at >= now() - interval '7 days' GROUP BY provider ORDER BY value DESC",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Cost by Provider (USD)",
+      "type": "piechart",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT provider AS metric, round(coalesce(sum(cost_usd), 0)::numeric, 6) AS value FROM enrichments WHERE created_at >= now() - interval '7 days' AND provider != 'mock' GROUP BY provider",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Daily API Cost Trend",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 24, "h": 8 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT date_trunc('day', created_at) AS time, sum(cost_usd) AS cost_usd FROM enrichments WHERE created_at >= now() - interval '7 days' GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "IOC Types Checked",
+      "type": "barchart",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT enrichment_type AS metric, count(*) AS value FROM enrichments WHERE created_at >= now() - interval '7 days' GROUP BY enrichment_type ORDER BY value DESC",
+          "format": "table",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Average Risk Score After Enrichment",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "datasource": { "uid": "trustsoc_postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT date_trunc('hour', created_at) AS time, avg(risk_score) AS avg_risk_score FROM alerts WHERE status = 'enriched' AND created_at >= now() - interval '7 days' GROUP BY 1 ORDER BY 1",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

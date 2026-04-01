@@ -1,0 +1,28 @@
+# Policy: Suppress Low-Risk Internal Alerts
+# Auto-closes alerts from internal hosts with a low risk score.
+# Reduces noise for well-understood internal activity.
+
+name: suppress_low_risk_internal
+version: "1.0"
+enabled: true
+description: >
+  Alerts from internal hosts that score below 20 after enrichment
+  are marked as suppressed automatically, freeing analysts to focus
+  on higher-priority work.
+
+conditions:
+  - field: risk_score
+    operator: lte
+    value: 20
+  - field: normalized_alert.severity
+    operator: neq
+    value: critical
+
+actions:
+  - type: suppress_alert
+    requires_approval: false
+
+explanation_template: >
+  Alert {alert_id} scored {risk_score} (low risk).
+  Policy '{policy_name}' auto-suppressed to reduce noise.
+  Re-open manually if context changes.
