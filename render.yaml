@@ -3,9 +3,9 @@ services:
     name: trustsoc-api
     runtime: python
     plan: free
-    branch: main
+    branch: master
 
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && python -m alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
     healthCheckPath: /health
@@ -14,7 +14,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
 
-      # Secrets (set in Render dashboard)
+      # Secrets (set in Render dashboard — not committed here)
       - key: DATABASE_URL
         sync: false
       - key: API_KEY
@@ -25,6 +25,8 @@ services:
         sync: false
       - key: OTX_API_KEY
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
 
       # App settings
       - key: ENVIRONMENT
@@ -32,7 +34,7 @@ services:
       - key: LOG_LEVEL
         value: INFO
 
-      # Rate limiting / thresholds (Render env vars are strings; app will cast)
+      # Rate limiting / thresholds
       - key: MAX_ALERTS_PER_MINUTE
         value: "100"
       - key: MAX_BLOCKS_PER_HOUR
@@ -61,3 +63,6 @@ services:
         value: "15"
       - key: MIN_ALERTS_FOR_INCIDENT
         value: "3"
+
+      - key: OFFLINE_MODE
+        value: "false"
